@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<alerts>
+   <alert>
+      <name>Test Alert</name>
+      <description>This is a test alert.</description>
+      <location>London, ON</location>
+   </alert>
+</alerts>
