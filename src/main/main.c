@@ -24,57 +24,102 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
+#include <string.h>
 
 #include "../xml/xml.h"
 
-void print_element(XmlElement element)
+struct Alert
 {
-   printf("Element\n\tname: %s\n\tvalue: %s\n", xml_element_name(element),
-                                                xml_element_content(element));
-}// End of print_element
+   char *summary;
+   char *description;
+   char *location;
+};
+typedef struct Alert *Alert;
+
+bool str_equals(const char *a, const char *b)
+{
+   return strcmp(a, b) == 0;
+}
+
+Alert get_alert(XmlElement xml_alert)
+{
+   Alert alert = malloc(sizeof(struct Alert));
+   Queue alert_info = xml_element_children(xml_alert);
+
+   while (!queue_empty(alert_info))
+   {
+      XmlElement el = queue_dequeue(alert_info);
+      const char *element = xml_element_name(el);
+
+      if (str_equals(element, "summary")) {
+         alert->summary = strdup(xml_element_content(el));
+      } else if (str_equals(element, "description")) {
+         alert->description = strdup(xml_element_content(el));
+      } else if (str_equals(element, "location")) {
+         alert->location = strdup(xml_element_content(el));
+      }
+
+      free_xml_element(el);
+   }
+
+   destroy_queue(alert_info);
+
+   return alert;
+}// End of get_alert method
+
+void destroy_alert(void *ptr)
+{
+   if (!ptr) return;
+
+   Alert alert = ptr;
+
+   free(alert->summary);
+   free(alert->description);
+   free(alert->location);
+
+   free(alert);
+}
+
+/*
+   get_alerts(filename) Loads the alerts from file.
+*/
+Queue get_alerts(const char *filename)
+{
+   XmlDocument doc = load_xml_document(filename);
+   XmlElement root = xml_document_root_node(doc);
+
+   Queue xml_alerts = xml_element_children(root);
+   Queue alerts = create_queue(destroy_alert);
+
+   while (!queue_empty(xml_alerts))
+   {
+      XmlElement el_alert = queue_dequeue(xml_alerts);
+      queue_queue(alerts, get_alert(el_alert));
+      free_xml_element(el_alert);
+   }// End of while
+
+   destroy_queue(xml_alerts);
+
+   return alerts;
+}// End of get_alerts method
 
 int main(void)
 {
    // Setup modules
    setup_xml();
 
-   // Do stuff
-   XmlDocument doc = load_xml_document("test.xml");
-   XmlElement root = xml_document_root_node(doc);
-
-   Queue alerts = xml_element_children(root);
+   Queue alerts = get_alerts("test.xml");
 
    while(!queue_empty(alerts))
    {
-      XmlElement alert = queue_dequeue(alerts);
-      Queue alert_info = xml_element_children(alert);
-
-      while(!queue_empty(alert_info))
-      {
-         XmlElement info = queue_dequeue(alert_info);
-         print_element(info);
-
-         free_xml_element(info);
-      }// End of while
-
-      destroy_queue(alert_info);
-
-      //xml_traverse_elements(alert, print_element);
-
-      free_xml_element(alert);
+      Alert alert = queue_dequeue(alerts);
+      printf("%s\n", alert->summary);
+      printf("  For: %s\n", alert->location);
+      printf("  %s\n", alert->description);
    }// End of while
 
    destroy_queue(alerts);
-
-   /*XmlElement *alerts = xml_element_children(root);
-
-   for (XmlElement el = alerts; el; ++el)
-   {
-      xml_traverse_elements(el, print_element);
-   }// End of for*/
-
-   free_xml_element(root);
-   free_xml_document(doc);
 
    // Cleanup modules
    cleanup_xml();
